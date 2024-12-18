@@ -104,15 +104,15 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>) -> Result<(), 
 #[tokio::main]
 async fn main() {
     let count = 60000;
-    let conn_rate = 500;
+    let conn_rate = 100;
     // 169.148.154.72:443
     let url : String = "wss://10.62.31.35:8201/ws/RT/1234/wt/<token>?user_id=<userid>_51&pub_channel=channel_1&sub_channels=channel_1&usc=channel_1&load_test=true".to_string();
 
     let mach_code = Alphanumeric.sample_string(&mut rand::thread_rng(), 10);
 
     let mut success = Arc::new(AtomicUsize::new(0));
-    let mut conn_interval = tokio::time::interval(Duration::from_secs(2));
-    let mut cool_interval = tokio::time::interval(Duration::from_millis(10));
+    let mut conn_interval = tokio::time::interval(Duration::from_secs(1));
+    let mut cool_interval = tokio::time::interval(Duration::from_millis(12));
     conn_interval.tick().await;
     let mut connections = 0;
     cool_interval.tick().await;
