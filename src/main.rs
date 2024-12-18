@@ -93,7 +93,8 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>) -> Result<(), 
             println!("ws_disconnected {:?}", count);
         }
         Err(e) => {
-            println!("ERROR {:?}", e.source())
+            println!("ERROR {:?}", e.source());
+            return Err(e.into());
         }
     };
 
@@ -103,7 +104,7 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>) -> Result<(), 
 
 #[tokio::main]
 async fn main() {
-    let count = 60000;
+    let count = 30000;
     let conn_rate = 100;
     // 169.148.154.72:443
     let url : String = "wss://10.62.31.35:8201/ws/RT/1234/wt/<token>?user_id=<userid>_51&pub_channel=channel_1&sub_channels=channel_1&usc=channel_1&load_test=true".to_string();
@@ -130,8 +131,15 @@ async fn main() {
         temp_url = temp_url.replace("<userid>", format!("RT_x_{mach_code}_{i}").as_str());
         let c = success.clone();
         tokio::spawn(async move {
-            let _ = connect_ws_with_tls(temp_url.as_str(), c).await;
+            let re = connect_ws_with_tls(temp_url.as_str(), c).await;
+            if re.is_err(){
+                println!("ERROR in CONN {:?} | FNL SUC {:?}", re, success);
+                success.store(0, Ordering::SeqCst);
+            }
         });
+        if success.get_mut().eq(&0) && i>2 {
+            break;
+        }
         cool_interval.tick().await;
         connections+=1;
     }
