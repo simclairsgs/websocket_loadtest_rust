@@ -1,0 +1,15 @@
+[package]
+name = "mgserver_loadtest_impl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio-tungstenite = { version = "0.25.0", features = ["__rustls-tls"]}
+rustls = { version = "0.23.0"}
+rustls-pemfile = "2.2.0"
+futures-util = "0.3.31"
+tokio = { version = "1.42.0", features = ["full"] }
+time = "0.3.37"
+webpki-roots = "0.26.7"
+rand = "0.8.5"
+chrono = "0.4.39"
