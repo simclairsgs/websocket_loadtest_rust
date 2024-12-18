@@ -1,3 +1,3 @@
 #!/bin/bash
 echo "SGS => Starting load Test"
-nohup ./loadtest.bin > loadtest.log &
+nohup ~/george/loadtest/websocket_loadtest_rust/loadtest.bin > loadtest.log &
