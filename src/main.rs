@@ -103,8 +103,8 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>) -> Result<(), 
 
 #[tokio::main]
 async fn main() {
-    let count = 65000;
-    let conn_rate = 200;
+    let count = 60000;
+    let conn_rate = 500;
     // 169.148.154.72:443
     let url : String = "wss://10.62.31.35:8201/ws/RT/1234/wt/<token>?user_id=<userid>_51&pub_channel=channel_1&sub_channels=channel_1&usc=channel_1&load_test=true".to_string();
 
