@@ -140,7 +140,7 @@ async fn main() {
 
     let success = Arc::new(AtomicUsize::new(0));
     let mut conn_interval = tokio::time::interval(Duration::from_secs(1));
-    let mut cool_interval = tokio::time::interval(Duration::from_millis(12));
+    let mut cool_interval = tokio::time::interval(Duration::from_millis(2));
     conn_interval.tick().await;
     let mut connections = 0;
     cool_interval.tick().await;
