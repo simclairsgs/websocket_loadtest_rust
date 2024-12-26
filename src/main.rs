@@ -14,7 +14,9 @@ use tokio_tungstenite::tungstenite::protocol::frame::{Payload, Utf8Payload};
 use rand::distributions::{Alphanumeric, DistString};
 use rand::Rng;
 use tokio::sync::Mutex;
-use tokio::time::{Interval, interval};
+
+pub static mut SENT_DATA : usize = 0;
+pub static mut RCV_DATA : usize = 0;
 
 struct ServerCertVerifierImpl;
 
@@ -65,11 +67,13 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
             count.fetch_add(1, Ordering::SeqCst);
             let mss = Arc::new(Mutex::new(sink));
             if drive {
+                println!("drive");
                 let mssc = mss.clone();
                 tokio::spawn(async move {
                     let mut int = tokio::time::interval(Duration::from_secs(5));
                     int.tick().await;
                     let res = mssc.try_lock().unwrap().send(Message::Text(Utf8Payload::from("zvp-lock_channel-channel_1_51"))).await;
+                    println!("lock_sent");
                     int.tick().await;
                     let mut pktint = tokio::time::interval(Duration::from_millis(20));
                     let head : [u8;12] = [0x80, 0x6F, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2C, 0x12, 0x34, 0x56, 0x78];
@@ -79,6 +83,9 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
                     loop {
                         pktint.tick().await;
                         let res = mssc.try_lock().unwrap().send(Message::Binary(Payload::from(pd.clone()))).await;
+                        unsafe {
+                            SENT_DATA += 1;
+                        }
                     }
                 });
             }
@@ -90,6 +97,11 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
                     Ok(Message::Binary(data)) => {
                         if data.as_slice()[0] == 0x23 {
                             let _ = mss.try_lock().unwrap().send(Message::Binary(Payload::Vec([0x1].to_vec()))).await;
+                        }
+                        else{
+                            unsafe {
+                                RCV_DATA +=1;
+                            }
                         }
                     }
                     Ok(Message::Ping(ping)) => {
@@ -127,14 +139,16 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
 
 #[tokio::main]
 async fn main() {
-    let count = 63500;
-    let conn_rate = 5000;
-    let num = rand::thread_rng().gen_range(0..std::cmp::min(count, 50));
-    let driver = false;
+    let count = 5;
+    let conn_rate = 10000;
+    let mut num = rand::thread_rng().gen_range(0..std::cmp::min(count, 50));
+    num = count-1;
+    let driver = true;
     println!("NUM {num}");
 
     // 169.148.154.72:443
-    let url : String = "wss://169.148.154.72:443/ws/RT/1234/htw/<token>?user_id=<userid>_51&pub_channel=channel_1&sub_channels=channel_1&usc=channel_1&load_test=true".to_string();
+    // 10.62.31.35:8201
+    let url : String = "wss://10.62.31.35:8201/ws/RT/1234/htw/<token>?user_id=<userid>_51&pub_channel=channel_1&sub_channels=channel_1&usc=channel_1&load_test=true".to_string();
 
     let mach_code = Alphanumeric.sample_string(&mut rand::thread_rng(), 10);
 
@@ -176,6 +190,10 @@ async fn main() {
     let mut monitor = tokio::time::interval(Duration::from_secs(30));
     loop {
         monitor.tick().await;
-        println!("{:?} | CURRENT SESSIONS => {:?}", chrono::offset::Local::now(),  success);
+        unsafe {
+            println!("{:?} | CURRENT SESSIONS => {:?} | SEND {} | RCV {}", chrono::offset::Local::now(),  success, SENT_DATA, RCV_DATA);
+            SENT_DATA = 0;
+            RCV_DATA = 0;
+        }
     }
 }
