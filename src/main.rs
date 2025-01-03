@@ -12,7 +12,6 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::frame::{Payload, Utf8Payload};
 use rand::distributions::{Alphanumeric, DistString};
-use rand::Rng;
 use tokio::sync::Mutex;
 
 pub static mut SENT_DATA : usize = 0;
@@ -62,7 +61,7 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
     let connector = Connector::Rustls(Arc::new(config));
 
     match connect_async_tls_with_config(url,None, false, Some(connector)).await{
-        Ok((mut ws_stream, _)) => {
+        Ok((ws_stream, _)) => {
             let (sink, mut stream) = ws_stream.split();
             count.fetch_add(1, Ordering::SeqCst);
             let mss = Arc::new(Mutex::new(sink));
@@ -71,8 +70,9 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
                 let mssc = mss.clone();
                 tokio::spawn(async move {
                     let mut int = tokio::time::interval(Duration::from_secs(5));
+                    println!("wait for 5 sec");
                     int.tick().await;
-                    let res = mssc.try_lock().unwrap().send(Message::Text(Utf8Payload::from("zvp-lock_channel-channel_1_51"))).await;
+                    let _ = mssc.try_lock().unwrap().send(Message::Text(Utf8Payload::from("zvp-lock_channel-channel_1_51"))).await;
                     println!("lock_sent");
                     int.tick().await;
                     let mut pktint = tokio::time::interval(Duration::from_millis(20));
@@ -82,7 +82,7 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
                     pd.extend_from_slice(body.as_slice());
                     loop {
                         pktint.tick().await;
-                        let res = mssc.try_lock().unwrap().send(Message::Binary(Payload::from(pd.clone()))).await;
+                        let _ = mssc.try_lock().unwrap().send(Message::Binary(Payload::from(pd.clone()))).await;
                         unsafe {
                             SENT_DATA += 1;
                         }
@@ -139,10 +139,9 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
 
 #[tokio::main]
 async fn main() {
-    let count = 5;
+    let count = 1;
     let conn_rate = 10000;
-    let mut num = rand::thread_rng().gen_range(0..std::cmp::min(count, 50));
-    num = count-1;
+    let num = count-1;
     let driver = true;
     println!("NUM {num}");
 
@@ -154,7 +153,7 @@ async fn main() {
 
     let success = Arc::new(AtomicUsize::new(0));
     let mut conn_interval = tokio::time::interval(Duration::from_secs(1));
-    let mut cool_interval = tokio::time::interval(Duration::from_millis(2));
+    let mut cool_interval = tokio::time::interval(Duration::from_millis(5));
     conn_interval.tick().await;
     let mut connections = 0;
     cool_interval.tick().await;
