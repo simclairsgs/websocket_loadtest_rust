@@ -5,7 +5,6 @@ use rustls::{ClientConfig, DigitallySignedStruct, SignatureScheme};
 use tokio_tungstenite::Connector;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
 use futures_util::{SinkExt, StreamExt};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
@@ -13,6 +12,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::frame::{Payload, Utf8Payload};
 use rand::distributions::{Alphanumeric, DistString};
 use tokio::sync::Mutex;
+use tokio::time::Duration;
 
 pub static mut SENT_DATA : usize = 0;
 pub static mut RCV_DATA : usize = 0;
@@ -66,23 +66,15 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
             count.fetch_add(1, Ordering::SeqCst);
             let mss = Arc::new(Mutex::new(sink));
             if drive {
-                println!("drive");
                 let mssc = mss.clone();
                 tokio::spawn(async move {
                     let mut int = tokio::time::interval(Duration::from_secs(5));
-                    println!("wait for 5 sec");
                     int.tick().await;
-                    let _ = mssc.try_lock().unwrap().send(Message::Text(Utf8Payload::from("zvp-lock_channel-channel_1_51"))).await;
-                    println!("lock_sent");
-                    int.tick().await;
-                    let mut pktint = tokio::time::interval(Duration::from_millis(20));
-                    let head : [u8;12] = [0x80, 0x6F, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2C, 0x12, 0x34, 0x56, 0x78];
-                    let body = [0u8; 250];
-                    let mut pd = head.to_vec();
-                    pd.extend_from_slice(body.as_slice());
+                    let mut pktint = tokio::time::interval(Duration::from_millis(1000));
+                    let mut pd = "{'Test' : 'Value', 'map' : { 'hello' : 'world' }}";
                     loop {
                         pktint.tick().await;
-                        let _ = mssc.try_lock().unwrap().send(Message::Binary(Payload::from(pd.clone()))).await;
+                        let _ = mssc.lock().await.send(Message::Text(Utf8Payload::from(pd))).await;
                         unsafe {
                             SENT_DATA += 1;
                         }
@@ -93,20 +85,18 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
                 match msg {
                     Ok(Message::Text(text)) => {
                         println!("Received text: {}", text);
+                        unsafe {
+                            RCV_DATA +=1;
+                        }
                     }
                     Ok(Message::Binary(data)) => {
                         if data.as_slice()[0] == 0x23 {
-                            let _ = mss.try_lock().unwrap().send(Message::Binary(Payload::Vec([0x1].to_vec()))).await;
-                        }
-                        else{
-                            unsafe {
-                                RCV_DATA +=1;
-                            }
+                            let _ = mss.lock().await.send(Message::Binary(Payload::Vec([0x1].to_vec()))).await;
                         }
                     }
                     Ok(Message::Ping(ping)) => {
                         println!("Received ping: {:?}", ping);
-                        mss.try_lock().unwrap().send(Message::Pong(ping)).await.unwrap();
+                        mss.lock().await.send(Message::Pong(ping)).await.unwrap();
                     }
                     Ok(Message::Pong(pong)) => {
                         println!("Received pong: {:?}", pong);
@@ -147,7 +137,7 @@ async fn main() {
 
     // 169.148.154.72:443
     // 10.62.31.35:8201
-    let url : String = "wss://10.62.31.35:8201/ws/RT/1234/htw/<token>?user_id=<userid>_51&pub_channel=channel_1&sub_channels=channel_1&usc=channel_1&load_test=true".to_string();
+    let url : String = "wss://172.20.73.171:8201/ws_zvp_media/RT_RT_1_12345_32423_5745674/<userid>/<token>".to_string();
 
     let mach_code = Alphanumeric.sample_string(&mut rand::thread_rng(), 10);
 
@@ -171,7 +161,7 @@ async fn main() {
         temp_url = temp_url.replace("<userid>", format!("RT_x_{mach_code}_{i}").as_str());
         let c = success.clone();
         tokio::spawn(async move {
-            let re = connect_ws_with_tls(temp_url.as_str(), c, driver && num==i).await;
+            let re = connect_ws_with_tls(temp_url.as_str(), c, true).await;
             if re.is_err(){
                 println!("ERROR in CONN {:?} | FNL SUC", re);
             }
