@@ -84,7 +84,7 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
             while let Some(msg) = stream.next().await {
                 match msg {
                     Ok(Message::Text(text)) => {
-                        println!("Received text: {}", text);
+                        //println!("Received text: {}", text);
                         unsafe {
                             RCV_DATA +=1;
                         }
@@ -129,10 +129,10 @@ async fn connect_ws_with_tls(url: &str, count : Arc<AtomicUsize>, drive : bool) 
 
 #[tokio::main]
 async fn main() {
-    let count = 1;
-    let conn_rate = 10000;
+    let count = 65000;
+    let conn_rate = 2000;
     let num = count-1;
-    let driver = true;
+    let driver = false;
     println!("NUM {num}");
 
     // 169.148.154.72:443
@@ -143,7 +143,7 @@ async fn main() {
 
     let success = Arc::new(AtomicUsize::new(0));
     let mut conn_interval = tokio::time::interval(Duration::from_secs(1));
-    let mut cool_interval = tokio::time::interval(Duration::from_millis(5));
+    let mut cool_interval = tokio::time::interval(Duration::from_millis(6));
     conn_interval.tick().await;
     let mut connections = 0;
     cool_interval.tick().await;
@@ -161,7 +161,7 @@ async fn main() {
         temp_url = temp_url.replace("<userid>", format!("RT_x_{mach_code}_{i}").as_str());
         let c = success.clone();
         tokio::spawn(async move {
-            let re = connect_ws_with_tls(temp_url.as_str(), c, true).await;
+            let re = connect_ws_with_tls(temp_url.as_str(), c, driver).await;
             if re.is_err(){
                 println!("ERROR in CONN {:?} | FNL SUC", re);
             }
